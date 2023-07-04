@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<modification>
+    <name>[Qvart] Fix Order Editing Stock Quantity Issue</name>
+    <code>qvart_fix_order_editing_stock_quantity_issue</code>
+    <version>1.0.0</version>
+    <author>Qvart</author>
+
+    <file path="admin/controller/sale/order.php">
+        <operation error="log">
+            <search><![CDATA[$this->response->setOutput($this->load->view('sale/order_form', $data));]]></search>
+            <add position="before"><![CDATA[
+                // Fix Order Editing Stock Quantity Issue - BEGIN
+                if (isset($this->request->get['order_id'])) {
+                    $session->data['editing_order_id'] = (int)$this->request->get['order_id'];
+                }
+                // Fix Order Editing Stock Quantity Issue - END
+            ]]></add>
+        </operation>
+    </file>
+
+    <file path="system/library/cart/cart.php">
+        <operation error="log">
+            <search><![CDATA[$stock = true;]]></search>
+            <add position="after"><![CDATA[
+                // Fix Order Editing Stock Quantity Issue - BEGIN
+                $order_quantity = 0;
+                if (isset($this->session->data['editing_order_id'])) {
+                    $order = $this->db->query("SELECT DISTINCT op.order_id, op.quantity, o.order_status_id FROM " . DB_PREFIX . "order o LEFT JOIN " . DB_PREFIX . "order_product op ON (op.order_id = o.order_id) WHERE o.order_id = '" . (int)$this->session->data['editing_order_id'] . "' AND op.product_id = '" . (int)$cart['product_id'] . "'");
+                    
+                    if (in_array($order->row['order_status_id'], $this->config->get('config_processing_status'))) {
+                        $order_quantity = $order->row['quantity'];
+                    }
+                }
+                // Fix Order Editing Stock Quantity Issue - END
+            ]]></add>
+        </operation>
+        <operation error="log">
+            <search><![CDATA[if ($option_value_query->row['subtract'] && (!$option_value_query->row['quantity'] || ($option_value_query->row['quantity'] < $cart['quantity']))) {]]></search>
+            <add position="replace"><![CDATA[
+                // Fix Order Editing Stock Quantity Issue - BEGIN
+                if ($option_value_query->row['subtract'] && ($option_value_query->row['quantity'] < ($cart['quantity'] - $order_quantity))) {
+                // Fix Order Editing Stock Quantity Issue - END
+            ]]></add>
+        </operation>
+        <operation error="log">
+            <search><![CDATA[if (!$product_query->row['quantity'] || ($product_query->row['quantity'] < $cart['quantity'])) {]]></search>
+            <add position="replace"><![CDATA[
+                // Fix Order Editing Stock Quantity Issue - BEGIN
+                if ($product_query->row['quantity'] < ($cart['quantity'] - $order_quantity)) {
+                // Fix Order Editing Stock Quantity Issue - END
+            ]]></add>
+        </operation>
+    </file>
+</modification>
